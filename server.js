@@ -22,7 +22,7 @@ app.use("/api/vvgnli/v1/user", UserRouter);
 
 app.get("/", (_, res) => {
   res.status(200).json({
-    message: "Welcome to VVGNLI Backend API with CI/CD",
+    message: "Welcome to Sandbox VVGNLI Backend API with CI/CD",
     status: 200,
     timestamp: Date.now(),
   });
