@@ -58,14 +58,7 @@ exports.validateSignupRequest = (req) => {
 
 // method to check if login request is valid or not
 exports.validateLoginRequest = (req) => {
-  const { email, password, type } = req.body;
-
-  if (!validateEmail(email)) {
-    return {
-      message: "Invalid email format",
-      success: false,
-    };
-  }
+  const { emailAddress, password, loginType } = req.body;
 
   if (!validatePassword(password)) {
     return {
@@ -74,7 +67,14 @@ exports.validateLoginRequest = (req) => {
     };
   }
 
-  if (!validateString(type)) {
+  if (!validateEmail(emailAddress)) {
+    return {
+      message: "Invalid email format",
+      success: false,
+    };
+  }
+
+  if (!validateString(loginType)) {
     return {
       message: "Invalid login request",
       success: false,
@@ -84,13 +84,16 @@ exports.validateLoginRequest = (req) => {
   return { success: true };
 };
 
-// method to check if forgot password request is valid or not
-exports.validateForgotPasswordRequest = (req) => {
-  const isEmailValidated = validateEmail(req.body.email);
 
-  if (!isEmailValidated) {
+exports.validatePostHandleRequest = (req) => {
+  const {userId, mediaIdArray} = req.body;
+
+  if (
+    !validateString(userId) ||
+    !validateArray(mediaIdArray) 
+  ) {
     return {
-      message: "Invalid email format",
+      message: "Invalid post handle request",
       success: false,
     };
   }
@@ -98,35 +101,84 @@ exports.validateForgotPasswordRequest = (req) => {
   return { success: true };
 };
 
-exports.validatePasswordChangeRequest = (req) => {
-  const { email, password, confirmPassword } = req.body;
-
-  if (!validateEmail(email)) {
+exports.validatePostStatusRequest = (req) => {
+  const {mediaId, postStatus} = req.body;
+  if (
+    !validateString(mediaId) ||
+    !validateString(postStatus) 
+  ) {
     return {
-      message: "Invalid email",
-      success: false,
-    };
-  }
-
-  if (!validatePassword(password) || !validatePassword(confirmPassword)) {
-    return {
-      message: "Invalid password format",
-      success: false,
-    };
-  }
-
-  if (password !== confirmPassword) {
-    return {
-      message: "Passwords mismatched",
+      message: "Invalid update post status request",
       success: false,
     };
   }
 
   return { success: true };
-};
+}
+
+exports.validateLikeRequest = (req) => {
+  const {userId, mediaId, likeStatus} = req.body;
+  if (
+    !validateString(userId) || 
+    !validateString(mediaId) ||
+    !validateString(likeStatus) 
+  ) {
+    return {
+      message: "Invalid like request",
+      success: false,
+    };
+  }
+
+  return { success: true };
+}
+
+exports.validateCommentRequest = (req) => {
+  const {userId, mediaId, commentData} = req.body;
+  if (
+    !validateString(userId) || 
+    !validateString(mediaId) ||
+    !validateString(commentData) 
+  ) {
+    return {
+      message: "Invalid comment request",
+      success: false,
+    };
+  }
+
+  return { success: true };
+}
+
+exports.validateGetCommentRequest = (req) => {
+  const {mediaId} = req.query;
+  if(!validateString(mediaId)){
+    return {
+      message: "Invalid get comment request",
+      success: false,
+    };
+  }
+
+  return { success: true };
+}
+
+exports.validateGetLikedPostsRequest = (req) => {
+  const {userId} = req.query;
+  if(!validateString(userId)){
+    return {
+      message: "Invalid get liked posts request",
+      success: false,
+    };
+  }
+
+  return { success: true };
+}
+
+const validateArray = (arr) => {
+  return arr.length > 0 && arr.every((ele) => validateString(ele));
+}
 
 // method to check if a string is valid or not
 const validateString = (str) => {
+  console.log(str);
   return str !== undefined && str !== null && str.trim().length > 0;
 };
 

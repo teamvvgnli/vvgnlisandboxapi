@@ -2,24 +2,13 @@ const {
   INSERT_ADDRESS_DETAILS_QUERY,
   INSERT_USER_DETAILS_QUERY,
   FIND_USER_BY_EMAIL_QUERY,
-  PASSWORD_UPDATE_QUERY,
 } = require("../configs/databaseConfig/DatabaseQueries");
 const { makeDbCall } = require("../utils/DatabaseCalls");
-const {
-  CREATED_RC,
-  OK_RC,
-  BAD_REQUEST_RC,
-  INTERNAL_SERVER_ERROR_RC,
-} = require("../utils/ResponseCodes");
+const { CREATED_RC, OK_RC, BAD_REQUEST_RC } = require("../utils/ResponseCodes");
 const {
   generateHashedPassword,
   checkPassword,
-  generateRandomPassword,
 } = require("../utils/PasswordUtils");
-const {
-  sendForgotPasswordEmail,
-  sendPasswordChangedSuccessEmail,
-} = require("../utils/EmailSender");
 const crypto = require("crypto");
 
 // signup controller method
@@ -90,21 +79,22 @@ exports.Signup = async (req, res) => {
 
 // login controller method
 exports.Login = async (req, res) => {
-  const { email, password, type } = req.body;
+  const { emailAddress, password, loginType } = req.body;
 
-  const findUserByEmailResult = await makeDbCall(FIND_USER_BY_EMAIL_QUERY, [
-    email,
-  ]);
+  const findUserByEmailQueryResult = await makeDbCall(
+    FIND_USER_BY_EMAIL_QUERY,
+    [emailAddress]
+  );
 
-  if (!findUserByEmailResult.success) {
-    return res.status(findUserByEmailResult.status).json({
-      message: findUserByEmailResult.message,
+  if (!findUserByEmailQueryResult.success) {
+    return res.status(findUserByEmailQueryResult.status).json({
+      message: findUserByEmailQueryResult.message,
       success: false,
       timestamp: Date.now(),
     });
   }
 
-  const user = findUserByEmailResult.response[0][0];
+  const user = findUserByEmailQueryResult.response[0][0];
 
   if (!user || !checkPassword(password, user?.password)) {
     return res.status(BAD_REQUEST_RC).json({
@@ -114,9 +104,10 @@ exports.Login = async (req, res) => {
     });
   }
 
-  if (type !== user?.userRole?.toString()) {
+  if (loginType !== user?.userRole?.toString()) {
     return res.status(BAD_REQUEST_RC).json({
-      message: generateErrorMessageAccordingToRequestedAndActualUserRole(type),
+      message:
+        generateErrorMessageAccordingToRequestedAndActualUserRole(loginType),
       success: false,
       timestamp: Date.now(),
     });
@@ -128,129 +119,9 @@ exports.Login = async (req, res) => {
       userId: user.userId,
       email: user.emailAddress,
       role: user.userRole,
-      isTempPassword: user.isTempPassword,
     },
     success: true,
     timestamp: Date.now(),
-  });
-};
-
-exports.ForgotPassword = async (req, res) => {
-  const { email } = req.body;
-
-  const findUserByEmailResult = await makeDbCall(FIND_USER_BY_EMAIL_QUERY, [
-    email,
-  ]);
-
-  if (!findUserByEmailResult.success) {
-    return res.status(findUserByEmailResult.status).json({
-      message:
-        "Error in forgot password request, check your email and try again",
-      success: false,
-      timestamp: Date.now(),
-    });
-  }
-
-  const user = findUserByEmailResult.response[0][0];
-
-  if (!user) {
-    return res.status(BAD_REQUEST_RC).json({
-      message: `No account found with emailId: ${email}`,
-      success: false,
-      timestamp: Date.now(),
-    });
-  }
-
-  const _tempPassword = generateRandomPassword();
-  const temporaryPassword = generateHashedPassword(_tempPassword);
-  const expiredInMinutes = process.env.TEMP_PASS_EXPIRES_IN || 10;
-  const expiresAt = Date.now() + expiredInMinutes * 60000;
-
-  const tempPasswordUpdateQueryResponse = await makeDbCall(
-    PASSWORD_UPDATE_QUERY,
-    [temporaryPassword, true, expiresAt, user.emailAddress, user.userId]
-  );
-
-  if (!tempPasswordUpdateQueryResponse.success) {
-    return res.status(INTERNAL_SERVER_ERROR_RC).json({
-      message: tempPasswordUpdateQueryResponse.message,
-      success: tempPasswordUpdateQueryResponse.status,
-      timestamp: Date.now(),
-    });
-  }
-
-  // send email to user with temporary password
-  const sendForgotPasswordEmailResponse = await sendForgotPasswordEmail(
-    user.emailAddress,
-    _tempPassword,
-    expiredInMinutes
-  );
-
-  return res.status(sendForgotPasswordEmailResponse.status).json({
-    message: sendForgotPasswordEmailResponse.message,
-    success: sendForgotPasswordEmailResponse.success,
-    status: sendForgotPasswordEmailResponse.status,
-  });
-};
-
-exports.ProcessPasswordUpdate = async (req, res) => {
-  const { email, password } = req.body;
-
-  const findUserByEmailResult = await makeDbCall(FIND_USER_BY_EMAIL_QUERY, [
-    email,
-  ]);
-
-  if (!findUserByEmailResult.success) {
-    return res.status(findUserByEmailResult.status).json({
-      message: findUserByEmailResult.message,
-      success: false,
-      timestamp: Date.now(),
-    });
-  }
-
-  const user = findUserByEmailResult.response[0][0];
-
-  if (!user) {
-    return res.status(BAD_REQUEST_RC).json({
-      message: `No user found with emailId: ${email}`,
-      success: false,
-      timestamp: Date.now(),
-    });
-  }
-
-  const passwordExpiresTime = user.tpExpiresAt - Date.now();
-
-  if (passwordExpiresTime < 0) {
-    return res.status(BAD_REQUEST_RC).json({
-      message: "Your temporary password is expired. Please generate again",
-      success: false,
-      timestamp: Date.now(),
-    });
-  }
-
-  const passwordUpdateQueryResponse = await makeDbCall(PASSWORD_UPDATE_QUERY, [
-    generateHashedPassword(password),
-    false,
-    0,
-    user.emailAddress,
-    user.userId,
-  ]);
-
-  if (!passwordUpdateQueryResponse.success) {
-    return res.status(passwordUpdateQueryResponse.status).json({
-      message: passwordUpdateQueryResponse.message,
-      success: passwordUpdateQueryResponse.status,
-      timestamp: Date.now(),
-    });
-  }
-
-  // send email to user with temporary password
-  sendPasswordChangedSuccessEmail(user.emailAddress);
-
-  return res.status(OK_RC).json({
-    message: "Password updated successfully",
-    success: true,
-    status: OK_RC,
   });
 };
 
@@ -259,7 +130,6 @@ const generateRandomId = () => {
   return crypto.randomBytes(8).toString("hex");
 };
 
-// method to generate error message if wrong login type is selected corresponding to userType
 const generateErrorMessageAccordingToRequestedAndActualUserRole = (
   loginType
 ) => {
@@ -267,11 +137,11 @@ const generateErrorMessageAccordingToRequestedAndActualUserRole = (
 
   switch (loginType) {
     case "1":
-      errorMessage = "You are not registered as admin";
+      errorMessage = "Username is not registered as admin";
       break;
 
     case "2":
-      errorMessage = "You are not registered as normal user";
+      errorMessage = "Username is not registered as normal user";
       break;
 
     default:
