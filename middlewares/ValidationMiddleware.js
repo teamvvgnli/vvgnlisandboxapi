@@ -2,10 +2,13 @@ const { BAD_REQUEST_RC } = require("../utils/ResponseCodes");
 const {
   validateSignupRequest,
   validateLoginRequest,
-  validateForgotPasswordRequest,
-  validatePasswordChangeRequest,
 } = require("../utils/Validation");
 
+/* middleware to validate if signup request is valid or not 
+calling utils method to validate 
+and if not validating then returning bad request response from middleware itself
+no need to even touch controller method and no need to add validations in controller method
+we are making sure that only validated request will hit our controller method*/
 exports.signupRequestValidatorMiddleware = (req, res, next) => {
   const isSignupRequestValidated = validateSignupRequest(req);
 
@@ -35,28 +38,5 @@ exports.loginRequestValidatorMiddleware = (req, res, next) => {
   next();
 };
 
-exports.forgotPasswordRequestValidatorMiddleware = (req, res, next) => {
-  const isForgotPasswordRequestValidated = validateForgotPasswordRequest(req);
 
-  if (!isForgotPasswordRequestValidated.success) {
-    return res.status(BAD_REQUEST_RC).json({
-      message: isForgotPasswordRequestValidated.message,
-      status: BAD_REQUEST_RC,
-    });
-  }
 
-  next();
-};
-
-exports.passwordChangeRequestValidatorMiddleware = (req, res, next) => {
-  const isPasswordChangeRequestValidated = validatePasswordChangeRequest(req);
-
-  if (!isPasswordChangeRequestValidated.success) {
-    return res.status(BAD_REQUEST_RC).json({
-      message: isPasswordChangeRequestValidated.message,
-      status: BAD_REQUEST_RC,
-    });
-  }
-
-  next();
-};
